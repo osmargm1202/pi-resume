@@ -1,0 +1,32 @@
+{
+  "name": "pi-resume",
+  "version": "0.1.0",
+  "description": "ORGM Pi session resume command package.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osmargm1202/pi-resume.git"
+  },
+  "bugs": {
+    "url": "https://github.com/osmargm1202/pi-resume/issues"
+  },
+  "homepage": "https://github.com/osmargm1202/pi-resume#readme",
+  "keywords": ["pi-package", "pi-extension", "orgm", "resume"],
+  "files": ["extensions", "README.md"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "pi": {
+    "extensions": ["./extensions/resume.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.79.0",
+    "@earendil-works/pi-tui": "^0.79.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.79.0",
+    "@earendil-works/pi-tui": "^0.79.0"
+  }
+}
