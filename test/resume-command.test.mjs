@@ -6,8 +6,30 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import resumeExtension from "../extensions/resume.ts";
+import { renderResumeMarkdown } from "../extensions/lib/resume-renderer.ts";
 
 const execFileAsync = promisify(execFile);
+
+test("renderResumeMarkdown sanitizes inline state values", () => {
+  const text = renderResumeMarkdown({
+    root: "/tmp/project",
+    branch: "feature/`tick`\nbranch",
+    recentCommits: ["abc123 commit with `tick`\n- injected commit"],
+    dirtyFiles: [" M file`name`.ts\n?? injected.ts"],
+    contextHeadings: ["Heading `tick`\n- injected heading"],
+    recentDocs: ["docs/guide`tick`.md\n- injected doc"],
+    warnings: ["warning with `tick`\n- injected warning"],
+  }, new Date("2026-06-13T00:00:00.000Z"));
+
+  assert.match(text, /- Branch: `feature\/\'tick\' branch`/);
+  assert.match(text, /- abc123 commit with 'tick' - injected commit/);
+  assert.match(text, /- M file'name'.ts \?\? injected.ts/);
+  assert.match(text, /Known context headings: `Heading 'tick' - injected heading`/);
+  assert.match(text, /- docs\/guide'tick'\.md - injected doc/);
+  assert.match(text, /- warning with 'tick' - injected warning/);
+  assert.doesNotMatch(text, /^- injected/m);
+  assert.doesNotMatch(text, /`tick`/);
+});
 
 test("/orgm-resume writes RESUME.md handoff", async () => {
   const dir = await mkdtemp(join(tmpdir(), "pi-resume-command-"));

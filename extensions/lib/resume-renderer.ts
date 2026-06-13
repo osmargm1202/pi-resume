@@ -1,7 +1,15 @@
 import type { ResumeState } from "./resume-scan.ts";
 
+function inlineValue(value: string): string {
+	return value.replace(/\s+/g, " ").trim().replace(/`/g, "'");
+}
+
+function codeSpan(value: string): string {
+	return `\`${inlineValue(value)}\``;
+}
+
 function list(items: string[]): string {
-	return items.length ? items.map((item) => `- ${item}`).join("\n") : "- None";
+	return items.length ? items.map((item) => `- ${inlineValue(item)}`).join("\n") : "- None";
 }
 
 export function renderResumeMarkdown(state: ResumeState, now = new Date()): string {
@@ -13,7 +21,7 @@ ${now.toISOString()}
 
 ## Current Branch and Commits
 
-- Branch: \`${state.branch}\`
+- Branch: ${codeSpan(state.branch)}
 
 ${list(state.recentCommits)}
 
@@ -23,7 +31,7 @@ ${list(state.dirtyFiles)}
 
 ## Recent Decisions
 
-${state.contextHeadings.length ? `Known context headings: ${state.contextHeadings.map((heading) => `\`${heading}\``).join(", ")}` : "- No CONTEXT.md or AGENTS.md headings detected."}
+${state.contextHeadings.length ? `Known context headings: ${state.contextHeadings.map(codeSpan).join(", ")}` : "- No CONTEXT.md or AGENTS.md headings detected."}
 
 ## Completed Work
 
