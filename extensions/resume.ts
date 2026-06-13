@@ -1,9 +1,12 @@
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { SessionManager, type SessionInfo } from "@earendil-works/pi-coding-agent";
 import { type SelectItem } from "@earendil-works/pi-tui";
-import { createSelectPanel } from "./lib/tui-select-panel.ts";
+import { writeManagedMarkdown } from "./lib/file-writer.ts";
 import { isOrgmExtensionEnabled } from "./lib/orgm-extension-config.ts";
+import { renderResumeMarkdown } from "./lib/resume-renderer.ts";
+import { scanResumeState } from "./lib/resume-scan.ts";
+import { createSelectPanel } from "./lib/tui-select-panel.ts";
 
 const MAX_SELECTOR_HEIGHT = 12;
 
@@ -90,7 +93,16 @@ export default function (pi: ExtensionAPI) {
 	if (!isOrgmExtensionEnabled("resume")) return;
 
 	pi.registerCommand("orgm-resume", {
-		description: "Resume a saved session for the current project",
+		description: "Generate ORGM RESUME.md handoff for this project",
+		handler: async (_args, ctx) => {
+			const state = await scanResumeState(ctx.cwd);
+			await writeManagedMarkdown(join(ctx.cwd, "RESUME.md"), renderResumeMarkdown(state));
+			ctx.ui.notify("ORGM resume handoff updated: RESUME.md", "success");
+		},
+	});
+
+	pi.registerCommand("orgm-session-resume", {
+		description: "Open saved session picker and switch to a selected session",
 		handler: async (_args, ctx) => {
 			await ctx.waitForIdle();
 

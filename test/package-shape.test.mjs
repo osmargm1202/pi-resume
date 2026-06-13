@@ -4,7 +4,7 @@ import test from "node:test";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
-test("package ships orgm resume command", () => {
+test("package ships orgm resume commands", () => {
   assert.equal(pkg.name, "pi-resume");
   assert.deepEqual(pkg.pi.extensions, ["./extensions/resume.ts"]);
   assert.ok(pkg.peerDependencies["@earendil-works/pi-coding-agent"]);
@@ -12,6 +12,7 @@ test("package ships orgm resume command", () => {
   assert.ok(existsSync("extensions/resume.ts"));
   const source = readFileSync("extensions/resume.ts", "utf8");
   assert.match(source, /registerCommand\("orgm-resume"/);
-  assert.match(source, /switchSession/);
+  assert.match(source, /RESUME\.md/);
+  assert.match(source, /registerCommand\("orgm-session-resume"/);
   assert.doesNotMatch(source, /registerCommand\("(?!orgm-)/);
 });
