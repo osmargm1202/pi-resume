@@ -1,11 +1,8 @@
-import { basename, join } from "node:path";
+import { basename, extname } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { SessionManager, type SessionInfo } from "@earendil-works/pi-coding-agent";
 import { type SelectItem } from "@earendil-works/pi-tui";
-import { writeManagedMarkdown } from "./lib/file-writer.ts";
 import { isOrgmExtensionEnabled } from "./lib/orgm-extension-config.ts";
-import { renderResumeMarkdown } from "./lib/resume-renderer.ts";
-import { scanResumeState } from "./lib/resume-scan.ts";
 import { createSelectPanel } from "./lib/tui-select-panel.ts";
 
 const MAX_SELECTOR_HEIGHT = 12;
@@ -51,9 +48,38 @@ function sortSessionsNewestFirst(sessions: SessionInfo[]): SessionInfo[] {
 	return [...sessions].sort((a, b) => b.modified.getTime() - a.modified.getTime());
 }
 
-async function openSessionSelector(ctx: ExtensionCommandContext): Promise<string | null> {
+export function parseResumeArgs(args: string): string {
+	const trimmed = args.trim();
+	if (
+		(trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+		(trimmed.startsWith("'") && trimmed.endsWith("'"))
+	) {
+		return trimmed.slice(1, -1).trim();
+	}
+	return trimmed;
+}
+
+function sessionIdFromPath(path: string): string {
+	const base = basename(path);
+	const extension = extname(base);
+	return extension ? base.slice(0, -extension.length) : base;
+}
+
+export function findRequestedSessionPath(sessions: Pick<SessionInfo, "path" | "name">[], args: string): string | null {
+	const requested = parseResumeArgs(args);
+	if (!requested) return null;
+	const requestedLower = requested.toLowerCase();
+	for (const session of sessions) {
+		const base = basename(session.path);
+		const id = sessionIdFromPath(session.path);
+		const candidates = [session.path, base, id, session.name || ""].map((value) => value.toLowerCase());
+		if (candidates.includes(requestedLower)) return session.path;
+	}
+	return null;
+}
+
+async function openSessionSelector(ctx: ExtensionCommandContext, sessions: SessionInfo[]): Promise<string | null> {
 	const currentSessionFile = ctx.sessionManager.getSessionFile();
-	const sessions = sortSessionsNewestFirst(await SessionManager.list(ctx.cwd));
 
 	if (sessions.length === 0) {
 		ctx.ui.notify("No saved sessions found for this project", "warning");
@@ -89,24 +115,28 @@ async function openSessionSelector(ctx: ExtensionCommandContext): Promise<string
 	}, { overlay: true });
 }
 
+async function resolveRequestedSession(ctx: ExtensionCommandContext, args: string): Promise<string | null> {
+	const sessions = sortSessionsNewestFirst(await SessionManager.list(ctx.cwd));
+	const requested = parseResumeArgs(args);
+	if (!requested) return await openSessionSelector(ctx, sessions);
+
+	const matched = findRequestedSessionPath(sessions, requested);
+	if (!matched) {
+		ctx.ui.notify(`No saved session matches: ${requested}`, "warning");
+		return null;
+	}
+	return matched;
+}
+
 export default function (pi: ExtensionAPI) {
 	if (!isOrgmExtensionEnabled("resume")) return;
 
 	pi.registerCommand("orgm-resume", {
-		description: "Generate ORGM RESUME.md handoff for this project",
-		handler: async (_args, ctx) => {
-			const state = await scanResumeState(ctx.cwd);
-			await writeManagedMarkdown(join(ctx.cwd, "RESUME.md"), renderResumeMarkdown(state));
-			ctx.ui.notify("ORGM resume handoff updated: RESUME.md", "success");
-		},
-	});
-
-	pi.registerCommand("orgm-session-resume", {
-		description: "Open saved session picker and switch to a selected session",
-		handler: async (_args, ctx) => {
+		description: "Resume a saved session by selector, id, or name",
+		handler: async (args, ctx) => {
 			await ctx.waitForIdle();
 
-			const selectedSession = await openSessionSelector(ctx);
+			const selectedSession = await resolveRequestedSession(ctx, args);
 			if (!selectedSession) return;
 
 			const currentSessionFile = ctx.sessionManager.getSessionFile();
