@@ -13,6 +13,7 @@ pi install git:github.com/osmargm1202/pi-resume
 - `/orgm-resume`: resume a saved session for the current project.
   - No args: opens a newest-first session selector.
   - With arg: resumes by session id/basename or saved session name.
+  - Before switching, asks whether to continue compacted; `Continue compacted` is selected by default.
 - This package does not generate `RESUME.md`; resume means session recovery, matching Claude Code `/resume` semantics.
 
 ## Development

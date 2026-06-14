@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findRequestedSessionPath, parseResumeArgs } from "../extensions/resume.ts";
+import {
+  buildResumeModeItems,
+  findRequestedSessionPath,
+  getDefaultResumeMode,
+  parseResumeArgs,
+  shouldCompactResume,
+} from "../extensions/resume.ts";
 
 const sessions = [
   {
@@ -31,4 +37,18 @@ test("findRequestedSessionPath resolves by id basename or name", () => {
   assert.equal(findRequestedSessionPath(sessions, "abc123.json"), "/sessions/abc123.json");
   assert.equal(findRequestedSessionPath(sessions, "planning-session"), "/sessions/abc123.json");
   assert.equal(findRequestedSessionPath(sessions, "missing"), null);
+});
+
+test("resume mode prompt defaults to compacted continuation", () => {
+  const items = buildResumeModeItems();
+
+  assert.equal(getDefaultResumeMode(), "compact");
+  assert.equal(items[0].value, "compact");
+  assert.match(items[0].label, /compacted/i);
+  assert.equal(shouldCompactResume(getDefaultResumeMode()), true);
+});
+
+test("resume mode can continue without compaction or cancel", () => {
+  assert.equal(shouldCompactResume("plain"), false);
+  assert.equal(shouldCompactResume(null), false);
 });

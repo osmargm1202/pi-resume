@@ -7,6 +7,31 @@ import { createSelectPanel } from "./lib/tui-select-panel.ts";
 
 const MAX_SELECTOR_HEIGHT = 12;
 
+export type ResumeMode = "compact" | "plain";
+
+export function buildResumeModeItems(): SelectItem[] {
+	return [
+		{
+			value: "compact",
+			label: "Continue compacted",
+			description: "Switch session, then compact context before continuing",
+		},
+		{
+			value: "plain",
+			label: "Continue without compacting",
+			description: "Switch session without changing its context",
+		},
+	];
+}
+
+export function getDefaultResumeMode(): ResumeMode {
+	return "compact";
+}
+
+export function shouldCompactResume(mode: ResumeMode | null): boolean {
+	return mode === "compact";
+}
+
 function formatTimestamp(date: Date): string {
 	try {
 		return new Intl.DateTimeFormat(undefined, {
@@ -115,6 +140,32 @@ async function openSessionSelector(ctx: ExtensionCommandContext, sessions: Sessi
 	}, { overlay: true });
 }
 
+async function openResumeModeSelector(ctx: ExtensionCommandContext): Promise<ResumeMode | null> {
+	const items = buildResumeModeItems();
+
+	return await ctx.ui.custom<ResumeMode | null>((tui, theme, _kb, done) => {
+		const { container, selectList } = createSelectPanel({
+			theme,
+			title: "Resume Session",
+			subtitle: "Choose how to continue",
+			help: "↑↓ navigate • enter continue • esc cancel",
+			items,
+			maxHeight: items.length,
+		});
+		selectList.onSelect = (item) => done(item.value as ResumeMode);
+		selectList.onCancel = () => done(null);
+
+		return {
+			render: (width: number) => container.render(width),
+			invalidate: () => container.invalidate(),
+			handleInput: (data: string) => {
+				selectList.handleInput(data);
+				tui.requestRender();
+			},
+		};
+	}, { overlay: true });
+}
+
 async function resolveRequestedSession(ctx: ExtensionCommandContext, args: string): Promise<string | null> {
 	const sessions = sortSessionsNewestFirst(await SessionManager.list(ctx.cwd));
 	const requested = parseResumeArgs(args);
@@ -145,10 +196,21 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
+			const resumeMode = await openResumeModeSelector(ctx);
+			if (!resumeMode) return;
+			const compactAfterSwitch = shouldCompactResume(resumeMode);
+
 			const recoveredMessage = `Recovered session: ${basename(selectedSession)}`;
 			const result = await ctx.switchSession(selectedSession, {
 				withSession: async (replacementCtx) => {
 					replacementCtx.ui.notify(recoveredMessage, "success");
+					if (compactAfterSwitch) {
+						replacementCtx.ui.notify("Compaction started", "info");
+						replacementCtx.compact({
+							onComplete: () => replacementCtx.ui.notify("Compaction completed", "success"),
+							onError: (error) => replacementCtx.ui.notify(`Compaction failed: ${error.message}`, "error"),
+						});
+					}
 				},
 			});
 			if (result.cancelled) {
