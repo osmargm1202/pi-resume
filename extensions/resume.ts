@@ -182,7 +182,7 @@ async function resolveRequestedSession(ctx: ExtensionCommandContext, args: strin
 export default function (pi: ExtensionAPI) {
 	if (!isOrgmExtensionEnabled("resume")) return;
 
-	pi.registerCommand("orgm-resume", {
+	pi.registerCommand("resume", {
 		description: "Resume a saved session by selector, id, or name",
 		handler: async (args, ctx) => {
 			await ctx.waitForIdle();
